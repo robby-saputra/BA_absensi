@@ -31,6 +31,14 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
   String tanggal = '';
   String search = '';
   String attendanceFilter = 'semua';
+  String historyStatusFilter = 'semua';
+  String historyTypeFilter = 'semua';
+  String historyPeriodFilter = 'semua';
+  DateTimeRange? historyRange;
+  String permissionStatusFilter = 'semua';
+  String permissionTypeFilter = 'semua';
+  String permissionPeriodFilter = 'semua';
+  DateTimeRange? permissionRange;
 
   @override
   void initState() {
@@ -164,6 +172,10 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
               ...absensiSection()
             else if (widget.type == PiketMenuType.jadwal)
               ...jadwalSections()
+            else if (widget.type == PiketMenuType.riwayat)
+              ...riwayatSection()
+            else if (widget.type == PiketMenuType.pengajuan)
+              ...pengajuanSection()
             else
               ...rows.map(itemCard),
           ],
@@ -420,19 +432,201 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
   }
 
   Widget riwayatCard(Map<String, dynamic> item) {
-    return baseCard(
-      title: item['nama'] ?? '-',
-      subtitle:
-          '${item['tanggal'] ?? '-'} | ${item['nama_kelas'] ?? '-'} | NIS ${item['nis'] ?? '-'}',
-      chips: [
-        chip(
-            'Masuk: ${joinTimeStatus(item['jam_masuk'], item['status_masuk'])}',
-            green),
-        chip(
-            'Pulang: ${joinTimeStatus(item['jam_pulang'], item['status_pulang'])}',
-            navy),
-      ],
+    final statusMasuk = (item['status_masuk'] ?? '').toString();
+    final statusPulang = (item['status_pulang'] ?? '').toString();
+    final mainColor =
+        attendanceColor(statusMasuk.isNotEmpty ? statusMasuk : statusPulang);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              avatar(item['nama'] ?? '-'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['nama'] ?? '-',
+                      style: const TextStyle(
+                        color: ink,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${item['nama_kelas'] ?? '-'} | NIS ${item['nis'] ?? '-'}',
+                      style: const TextStyle(
+                        color: muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              chip(item['tanggal'] ?? '-', mainColor),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: timeBox(
+                  label: 'Masuk',
+                  value:
+                      joinTimeStatus(item['jam_masuk'], item['status_masuk']),
+                  icon: Icons.login_rounded,
+                  color: attendanceColor(statusMasuk),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: timeBox(
+                  label: 'Pulang',
+                  value:
+                      joinTimeStatus(item['jam_pulang'], item['status_pulang']),
+                  icon: Icons.logout_rounded,
+                  color: attendanceColor(statusPulang),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
+  }
+
+  List<Widget> riwayatSection() {
+    final filtered = historyRows;
+    final masuk = rows
+        .where((item) => (item['jam_masuk'] ?? '').toString().isNotEmpty)
+        .length;
+    final pulang = rows
+        .where((item) => (item['jam_pulang'] ?? '').toString().isNotEmpty)
+        .length;
+    final bermasalah = rows.where((item) {
+      final combined =
+          '${item['status_masuk'] ?? ''} ${item['status_pulang'] ?? ''}'
+              .toLowerCase();
+      return combined.contains('telat') ||
+          combined.contains('izin') ||
+          combined.contains('sakit') ||
+          combined.contains('alfa') ||
+          combined.contains('alpa') ||
+          combined.contains('pulang_cepat');
+    }).length;
+
+    return [
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: miniStat('Masuk', masuk, green)),
+                const SizedBox(width: 8),
+                Expanded(child: miniStat('Pulang', pulang, navy)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: miniStat(
+                    'Catatan',
+                    bermasalah,
+                    const Color(0xffb76b11),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              onChanged: (value) => setState(() => search = value),
+              decoration: inputDecoration('Cari nama, NIS, kelas, tanggal...'),
+            ),
+            const SizedBox(height: 12),
+            filterLabel('Status'),
+            optionChips(historyStatusOptions, historyStatusFilter, (value) {
+              setState(() => historyStatusFilter = value);
+            }),
+            const SizedBox(height: 10),
+            filterLabel('Kondisi Absensi'),
+            optionChips(historyTypeOptions, historyTypeFilter, (value) {
+              setState(() => historyTypeFilter = value);
+            }),
+            const SizedBox(height: 10),
+            filterLabel('Periode'),
+            optionChips(historyPeriodOptions, historyPeriodFilter, (value) {
+              if (value == 'custom') {
+                pickHistoryRange();
+                return;
+              }
+              setState(() {
+                historyPeriodFilter = value;
+                historyRange = null;
+              });
+            }),
+            if (historyRange != null) ...[
+              const SizedBox(height: 10),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: pickHistoryRange,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xfff8fbff),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: line),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.date_range_rounded, color: navy),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${formatDate(historyRange!.start)} sampai ${formatDate(historyRange!.end)}',
+                          style: const TextStyle(
+                            color: ink,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: resetHistoryFilter,
+                icon: const Icon(Icons.filter_alt_off_rounded),
+                label: const Text('Reset Filter'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: navy,
+                  side: const BorderSide(color: line),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (filtered.isEmpty) emptyCard() else ...filtered.map(riwayatCard),
+    ];
   }
 
   Widget jadwalCard(Map<String, dynamic> item) {
@@ -627,6 +821,7 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
   Widget pengajuanCard(Map<String, dynamic> item) {
     final status = (item['status'] ?? '-').toString();
     final isWaiting = status == 'menunggu';
+    final statusColor = permissionStatusColor(status);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -634,34 +829,62 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item['nama_siswa'] ?? '-',
-            style: const TextStyle(
-              color: ink,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              avatar(item['nama_siswa'] ?? '-'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['nama_siswa'] ?? '-',
+                      style: const TextStyle(
+                        color: ink,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${item['nama_kelas'] ?? '-'} | ${item['tanggal_mulai']} s/d ${item['tanggal_selesai']}',
+                      style: const TextStyle(
+                        color: muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              chip(status, statusColor),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            '${item['nama_kelas'] ?? '-'} | ${item['tanggal_mulai']} s/d ${item['tanggal_selesai']}',
-            style: const TextStyle(color: muted, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               chip('Jenis: ${item['jenis'] ?? '-'}', navy),
-              chip('Status: $status',
-                  isWaiting ? const Color(0xffb76b11) : green),
+              chip('Mulai: ${item['tanggal_mulai'] ?? '-'}', green),
+              chip('Selesai: ${item['tanggal_selesai'] ?? '-'}', muted),
             ],
           ),
           if ((item['alasan'] ?? '').toString().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              item['alasan'].toString(),
-              style: const TextStyle(color: muted, fontWeight: FontWeight.w600),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xfff8fbff),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: line),
+              ),
+              child: Text(
+                item['alasan'].toString(),
+                style:
+                    const TextStyle(color: muted, fontWeight: FontWeight.w700),
+              ),
             ),
           ],
           if (isWaiting) ...[
@@ -689,6 +912,119 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> pengajuanSection() {
+    final filtered = permissionRows;
+    final menunggu = rows
+        .where((item) => (item['status'] ?? '').toString() == 'menunggu')
+        .length;
+    final disetujui = rows
+        .where((item) => (item['status'] ?? '').toString() == 'disetujui')
+        .length;
+    final ditolak = rows
+        .where((item) => (item['status'] ?? '').toString() == 'ditolak')
+        .length;
+
+    return [
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: miniStat('Menunggu', menunggu, const Color(0xffb76b11)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: miniStat('Disetujui', disetujui, green)),
+                const SizedBox(width: 8),
+                Expanded(child: miniStat('Ditolak', ditolak, red)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              onChanged: (value) => setState(() => search = value),
+              decoration: inputDecoration('Cari siswa, kelas, jenis, alasan...'),
+            ),
+            const SizedBox(height: 12),
+            filterLabel('Status Pengajuan'),
+            optionChips(permissionStatusOptions, permissionStatusFilter, (value) {
+              setState(() => permissionStatusFilter = value);
+            }),
+            const SizedBox(height: 10),
+            filterLabel('Jenis Izin'),
+            optionChips(permissionTypeOptions, permissionTypeFilter, (value) {
+              setState(() => permissionTypeFilter = value);
+            }),
+            const SizedBox(height: 10),
+            filterLabel('Periode'),
+            optionChips(permissionPeriodOptions, permissionPeriodFilter, (value) {
+              if (value == 'custom') {
+                pickPermissionRange();
+                return;
+              }
+              setState(() {
+                permissionPeriodFilter = value;
+                permissionRange = null;
+              });
+            }),
+            if (permissionRange != null) ...[
+              const SizedBox(height: 10),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: pickPermissionRange,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xfff8fbff),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: line),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.date_range_rounded, color: navy),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${formatDate(permissionRange!.start)} sampai ${formatDate(permissionRange!.end)}',
+                          style: const TextStyle(
+                            color: ink,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: resetPermissionFilter,
+                icon: const Icon(Icons.filter_alt_off_rounded),
+                label: const Text('Reset Filter'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: navy,
+                  side: const BorderSide(color: line),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (filtered.isEmpty) emptyCard() else ...filtered.map(pengajuanCard),
+    ];
   }
 
   Widget baseCard({
@@ -959,6 +1295,379 @@ class _PiketMenuScreenState extends State<PiketMenuScreen> {
       return const Color(0xffb76b11);
     }
     return muted;
+  }
+
+  List<Map<String, String>> get historyStatusOptions => const [
+        {'label': 'Semua', 'value': 'semua'},
+        {'label': 'Hadir', 'value': 'hadir'},
+        {'label': 'Telat', 'value': 'telat'},
+        {'label': 'Izin', 'value': 'izin'},
+        {'label': 'Sakit', 'value': 'sakit'},
+        {'label': 'Alfa', 'value': 'alfa'},
+        {'label': 'Pulang Cepat', 'value': 'pulang_cepat'},
+      ];
+
+  List<Map<String, String>> get historyTypeOptions => const [
+        {'label': 'Semua', 'value': 'semua'},
+        {'label': 'Sudah Masuk', 'value': 'masuk'},
+        {'label': 'Sudah Pulang', 'value': 'pulang'},
+        {'label': 'Lengkap', 'value': 'lengkap'},
+        {'label': 'Belum Pulang', 'value': 'belum_pulang'},
+      ];
+
+  List<Map<String, String>> get historyPeriodOptions => const [
+        {'label': 'Semua', 'value': 'semua'},
+        {'label': 'Hari ini', 'value': 'today'},
+        {'label': '7 hari', 'value': 'week'},
+        {'label': '30 hari', 'value': 'month'},
+        {'label': 'Pilih tanggal', 'value': 'custom'},
+      ];
+
+  List<Map<String, String>> get permissionStatusOptions => const [
+        {'label': 'Semua', 'value': 'semua'},
+        {'label': 'Menunggu', 'value': 'menunggu'},
+        {'label': 'Disetujui', 'value': 'disetujui'},
+        {'label': 'Ditolak', 'value': 'ditolak'},
+      ];
+
+  List<Map<String, String>> get permissionTypeOptions => const [
+        {'label': 'Semua', 'value': 'semua'},
+        {'label': 'Izin', 'value': 'izin'},
+        {'label': 'Sakit', 'value': 'sakit'},
+        {'label': 'Lainnya', 'value': 'lainnya'},
+      ];
+
+  List<Map<String, String>> get permissionPeriodOptions => const [
+        {'label': 'Semua', 'value': 'semua'},
+        {'label': 'Hari ini', 'value': 'today'},
+        {'label': '7 hari', 'value': 'week'},
+        {'label': '30 hari', 'value': 'month'},
+        {'label': 'Pilih tanggal', 'value': 'custom'},
+      ];
+
+  List<Map<String, dynamic>> get permissionRows {
+    return rows.where((item) {
+      final q = search.trim().toLowerCase();
+      final tanggalMulai = parseDate(item['tanggal_mulai']);
+
+      if (!matchesPermissionStatus(item)) return false;
+      if (!matchesPermissionType(item)) return false;
+      if (!matchesPermissionPeriod(tanggalMulai)) return false;
+
+      if (q.isEmpty) return true;
+      return '${item['nama_siswa']} ${item['nama_kelas']} ${item['jenis']} ${item['status']} ${item['alasan']} ${item['tanggal_mulai']} ${item['tanggal_selesai']}'
+          .toLowerCase()
+          .contains(q);
+    }).toList()
+      ..sort((a, b) {
+        final aKey = '${a['status'] == 'menunggu' ? '0' : '1'} ${a['tanggal_mulai'] ?? ''}';
+        final bKey = '${b['status'] == 'menunggu' ? '0' : '1'} ${b['tanggal_mulai'] ?? ''}';
+        return aKey.compareTo(bKey);
+      });
+  }
+
+  bool matchesPermissionStatus(Map<String, dynamic> item) {
+    if (permissionStatusFilter == 'semua') return true;
+    return (item['status'] ?? '').toString() == permissionStatusFilter;
+  }
+
+  bool matchesPermissionType(Map<String, dynamic> item) {
+    if (permissionTypeFilter == 'semua') return true;
+    final jenis = (item['jenis'] ?? '').toString().toLowerCase();
+    if (permissionTypeFilter == 'lainnya') {
+      return !jenis.contains('izin') && !jenis.contains('sakit');
+    }
+    return jenis.contains(permissionTypeFilter);
+  }
+
+  bool matchesPermissionPeriod(DateTime? date) {
+    if (permissionPeriodFilter == 'semua') return true;
+    if (date == null) return false;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final current = DateTime(date.year, date.month, date.day);
+
+    if (permissionPeriodFilter == 'today') return current == today;
+    if (permissionPeriodFilter == 'week') {
+      return !current.isBefore(today.subtract(const Duration(days: 6))) &&
+          !current.isAfter(today);
+    }
+    if (permissionPeriodFilter == 'month') {
+      return !current.isBefore(today.subtract(const Duration(days: 29))) &&
+          !current.isAfter(today);
+    }
+    if (permissionPeriodFilter == 'custom' && permissionRange != null) {
+      final start = DateTime(
+        permissionRange!.start.year,
+        permissionRange!.start.month,
+        permissionRange!.start.day,
+      );
+      final end = DateTime(
+        permissionRange!.end.year,
+        permissionRange!.end.month,
+        permissionRange!.end.day,
+      );
+      return !current.isBefore(start) && !current.isAfter(end);
+    }
+
+    return true;
+  }
+
+  List<Map<String, dynamic>> get historyRows {
+    return rows.where((item) {
+      final q = search.trim().toLowerCase();
+      final tanggalItem = parseDate(item['tanggal']);
+
+      if (!matchesHistoryStatus(item)) return false;
+      if (!matchesHistoryType(item)) return false;
+      if (!matchesHistoryPeriod(tanggalItem)) return false;
+
+      if (q.isEmpty) return true;
+      return '${item['nama']} ${item['nis']} ${item['nama_kelas']} ${item['tanggal']} ${item['status_masuk']} ${item['status_pulang']}'
+          .toLowerCase()
+          .contains(q);
+    }).toList()
+      ..sort((a, b) {
+        final aKey = '${a['tanggal'] ?? ''} ${a['jam_masuk'] ?? ''}';
+        final bKey = '${b['tanggal'] ?? ''} ${b['jam_masuk'] ?? ''}';
+        return bKey.compareTo(aKey);
+      });
+  }
+
+  bool matchesHistoryStatus(Map<String, dynamic> item) {
+    if (historyStatusFilter == 'semua') return true;
+    final combined =
+        '${item['status_masuk'] ?? ''} ${item['status_pulang'] ?? ''}'
+            .toLowerCase()
+            .replaceAll(' ', '_');
+
+    if (historyStatusFilter == 'alfa') {
+      return combined.contains('alfa') || combined.contains('alpa');
+    }
+    return combined.contains(historyStatusFilter);
+  }
+
+  bool matchesHistoryType(Map<String, dynamic> item) {
+    if (historyTypeFilter == 'semua') return true;
+
+    final jamMasuk = (item['jam_masuk'] ?? '').toString();
+    final jamPulang = (item['jam_pulang'] ?? '').toString();
+
+    if (historyTypeFilter == 'masuk') return jamMasuk.isNotEmpty;
+    if (historyTypeFilter == 'pulang') return jamPulang.isNotEmpty;
+    if (historyTypeFilter == 'lengkap') {
+      return jamMasuk.isNotEmpty && jamPulang.isNotEmpty;
+    }
+    if (historyTypeFilter == 'belum_pulang') {
+      return jamMasuk.isNotEmpty && jamPulang.isEmpty;
+    }
+
+    return true;
+  }
+
+  bool matchesHistoryPeriod(DateTime? date) {
+    if (historyPeriodFilter == 'semua') return true;
+    if (date == null) return false;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final current = DateTime(date.year, date.month, date.day);
+
+    if (historyPeriodFilter == 'today') return current == today;
+    if (historyPeriodFilter == 'week') {
+      return !current.isBefore(today.subtract(const Duration(days: 6))) &&
+          !current.isAfter(today);
+    }
+    if (historyPeriodFilter == 'month') {
+      return !current.isBefore(today.subtract(const Duration(days: 29))) &&
+          !current.isAfter(today);
+    }
+    if (historyPeriodFilter == 'custom' && historyRange != null) {
+      final start = DateTime(
+        historyRange!.start.year,
+        historyRange!.start.month,
+        historyRange!.start.day,
+      );
+      final end = DateTime(
+        historyRange!.end.year,
+        historyRange!.end.month,
+        historyRange!.end.day,
+      );
+      return !current.isBefore(start) && !current.isAfter(end);
+    }
+
+    return true;
+  }
+
+  Future<void> pickHistoryRange() async {
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: historyRange ??
+          DateTimeRange(
+            start: now.subtract(const Duration(days: 7)),
+            end: now,
+          ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: navy,
+                  onPrimary: Colors.white,
+                ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (range == null) return;
+    setState(() {
+      historyRange = range;
+      historyPeriodFilter = 'custom';
+    });
+  }
+
+  Future<void> pickPermissionRange() async {
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: permissionRange ??
+          DateTimeRange(
+            start: now.subtract(const Duration(days: 7)),
+            end: now,
+          ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: navy,
+                  onPrimary: Colors.white,
+                ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (range == null) return;
+    setState(() {
+      permissionRange = range;
+      permissionPeriodFilter = 'custom';
+    });
+  }
+
+  void resetHistoryFilter() {
+    setState(() {
+      search = '';
+      historyStatusFilter = 'semua';
+      historyTypeFilter = 'semua';
+      historyPeriodFilter = 'semua';
+      historyRange = null;
+    });
+  }
+
+  void resetPermissionFilter() {
+    setState(() {
+      search = '';
+      permissionStatusFilter = 'semua';
+      permissionTypeFilter = 'semua';
+      permissionPeriodFilter = 'semua';
+      permissionRange = null;
+    });
+  }
+
+  Color permissionStatusColor(String status) {
+    final normalized = status.toLowerCase();
+    if (normalized == 'disetujui') return green;
+    if (normalized == 'ditolak') return red;
+    if (normalized == 'menunggu') return const Color(0xffb76b11);
+    return muted;
+  }
+
+  DateTime? parseDate(dynamic value) {
+    final text = value?.toString() ?? '';
+    if (text.isEmpty) return null;
+    return DateTime.tryParse(text);
+  }
+
+  String formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
+  }
+
+  Widget filterLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: muted,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Widget optionChips(
+    List<Map<String, String>> options,
+    String activeValue,
+    ValueChanged<String> onSelected,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: options.map((option) {
+          final active = activeValue == option['value'];
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              selected: active,
+              label: Text(option['label']!),
+              selectedColor: navy,
+              backgroundColor: const Color(0xfff8fbff),
+              labelStyle: TextStyle(
+                color: active ? Colors.white : navy,
+                fontWeight: FontWeight.w900,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+                side: BorderSide(color: active ? navy : line),
+              ),
+              onSelected: (_) => onSelected(option['value']!),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  InputDecoration inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: const Icon(Icons.search, color: navy),
+      filled: true,
+      fillColor: const Color(0xfff8fbff),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: navy, width: 1.5),
+      ),
+    );
   }
 
   BoxDecoration cardDecoration() {

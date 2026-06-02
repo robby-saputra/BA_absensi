@@ -18,133 +18,72 @@ class RiwayatScreen extends StatefulWidget {
 }
 
 class _RiwayatScreenState extends State<RiwayatScreen> {
-  List data = [];
-  List filteredData = [];
+  static const navy = Color(0xff233b78);
+  static const ink = Color(0xff172033);
+  static const muted = Color(0xff66758f);
+  static const line = Color(0xffdfe7f3);
+  static const bg = Color(0xfff3f7fc);
 
+  List<Map<String, dynamic>> data = [];
   bool loading = true;
+  bool failed = false;
 
-  String selectedFilter = 'Semua';
+  String search = '';
+  String typeFilter = 'semua';
+  String statusFilter = 'semua';
+  String periodFilter = 'semua';
+  DateTimeRange? customRange;
 
-  /*
-  |--------------------------------------------------------------------------
-  | GET RIWAYAT
-  |--------------------------------------------------------------------------
-  */
-  Future getRiwayat() async {
-    try {
-      var url = Uri.parse('$baseUrl/riwayat/${widget.siswaId}');
+  final typeOptions = const [
+    {'label': 'Semua', 'value': 'semua'},
+    {'label': 'Masuk', 'value': 'masuk'},
+    {'label': 'Pulang', 'value': 'pulang'},
+    {'label': 'Mapel', 'value': 'mapel'},
+  ];
 
-      var response = await http.get(url);
+  final statusOptions = const [
+    {'label': 'Semua', 'value': 'semua'},
+    {'label': 'Hadir', 'value': 'hadir'},
+    {'label': 'Telat', 'value': 'telat'},
+    {'label': 'Izin', 'value': 'izin'},
+    {'label': 'Sakit', 'value': 'sakit'},
+    {'label': 'Alfa', 'value': 'alfa'},
+    {'label': 'Pulang Cepat', 'value': 'pulang_cepat'},
+  ];
 
-      List result = jsonDecode(response.body);
+  final periodOptions = const [
+    {'label': 'Semua', 'value': 'semua'},
+    {'label': 'Hari ini', 'value': 'today'},
+    {'label': '7 hari', 'value': 'week'},
+    {'label': '30 hari', 'value': 'month'},
+    {'label': 'Pilih tanggal', 'value': 'custom'},
+  ];
 
-      if (!mounted) return;
-
-      setState(() {
-        data = result;
-        filteredData = result;
-
-        loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        loading = false;
-      });
-
-      /*
-      |--------------------------------------------------------------------------
-      | OPTIONAL ERROR
-      |--------------------------------------------------------------------------
-      | Tidak perlu snackbar keras supaya UX lebih clean
-      */
-    }
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | FILTER DATA
-  |--------------------------------------------------------------------------
-  */
-  void filterData(String jenis) {
+  Future<void> getRiwayat() async {
     setState(() {
-      selectedFilter = jenis;
-
-      if (jenis == 'Semua') {
-        filteredData = data;
-      } else if (jenis == 'Masuk') {
-        filteredData = data.where((item) {
-          return item['jenis'].toString().toLowerCase().contains('masuk');
-        }).toList();
-      } else if (jenis == 'Pulang') {
-        filteredData = data.where((item) {
-          return item['jenis'].toString().toLowerCase().contains('pulang');
-        }).toList();
-      } else {
-        filteredData = data.where((item) {
-          return item['jenis'].toString().toLowerCase().contains('mapel');
-        }).toList();
-      }
+      loading = true;
+      failed = false;
     });
-  }
 
-  /*
-  |--------------------------------------------------------------------------
-  | STATUS COLOR
-  |--------------------------------------------------------------------------
-  */
-  Color statusColor(String status) {
-    if (status.toLowerCase() == 'hadir') {
-      return Colors.green;
+    try {
+      final url = Uri.parse('$baseUrl/riwayat/${widget.siswaId}');
+      final response = await http.get(url);
+      final result = jsonDecode(response.body) as List;
+
+      if (!mounted) return;
+
+      setState(() {
+        data = result.map((item) => Map<String, dynamic>.from(item)).toList();
+        loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        loading = false;
+        failed = true;
+      });
     }
-
-    if (status.toLowerCase() == 'telat') {
-      return Colors.orange;
-    }
-
-    return Colors.red;
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | ICON JENIS ABSENSI
-  |--------------------------------------------------------------------------
-  */
-  IconData jenisIcon(String jenis) {
-    if (jenis.toLowerCase().contains('masuk')) {
-      return Icons.login;
-    }
-
-    if (jenis.toLowerCase().contains('pulang')) {
-      return Icons.logout;
-    }
-
-    return Icons.school;
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | TOTAL HADIR
-  |--------------------------------------------------------------------------
-  */
-  int totalHadir() {
-    return data.where((item) {
-      String status = item['status'].toString().toLowerCase();
-
-      return status == 'hadir' || status == 'telat';
-    }).length;
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | TOTAL TELAT
-  |--------------------------------------------------------------------------
-  */
-  int totalTelat() {
-    return data.where((item) {
-      return item['status'].toString().toLowerCase() == 'telat';
-    }).length;
   }
 
   @override
@@ -153,358 +92,666 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     getRiwayat();
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | FILTER BUTTON
-  |--------------------------------------------------------------------------
-  */
-  Widget filterButton(String title) {
-    bool active = selectedFilter == title;
+  List<Map<String, dynamic>> get filteredData {
+    return data.where((item) {
+      final jenis = value(item['jenis']).toLowerCase();
+      final status = normalizeStatus(item['status']);
+      final tanggal = parseDate(item['tanggal']);
+      final q = search.trim().toLowerCase();
 
-    return GestureDetector(
-      onTap: () {
-        filterData(title);
+      if (typeFilter != 'semua' && !jenis.contains(typeFilter)) return false;
+      if (statusFilter != 'semua' && status != statusFilter) return false;
+      if (!matchesPeriod(tanggal)) return false;
+
+      if (q.isEmpty) return true;
+      return '${item['jenis']} ${item['status']} ${item['tanggal']} ${item['jam_scan']}'
+          .toLowerCase()
+          .contains(q);
+    }).toList()
+      ..sort((a, b) {
+        final dateA = '${a['tanggal'] ?? ''} ${a['jam_scan'] ?? ''}';
+        final dateB = '${b['tanggal'] ?? ''} ${b['jam_scan'] ?? ''}';
+        return dateB.compareTo(dateA);
+      });
+  }
+
+  bool matchesPeriod(DateTime? date) {
+    if (periodFilter == 'semua') return true;
+    if (date == null) return false;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final current = DateTime(date.year, date.month, date.day);
+
+    if (periodFilter == 'today') return current == today;
+    if (periodFilter == 'week') {
+      return !current.isBefore(today.subtract(const Duration(days: 6))) &&
+          !current.isAfter(today);
+    }
+    if (periodFilter == 'month') {
+      return !current.isBefore(today.subtract(const Duration(days: 29))) &&
+          !current.isAfter(today);
+    }
+    if (periodFilter == 'custom' && customRange != null) {
+      final start = DateTime(
+        customRange!.start.year,
+        customRange!.start.month,
+        customRange!.start.day,
+      );
+      final end = DateTime(
+        customRange!.end.year,
+        customRange!.end.month,
+        customRange!.end.day,
+      );
+      return !current.isBefore(start) && !current.isAfter(end);
+    }
+
+    return true;
+  }
+
+  String value(dynamic input) {
+    final text = (input ?? '').toString().trim();
+    return text.isEmpty ? '-' : text;
+  }
+
+  String normalizeStatus(dynamic input) {
+    final status = value(input).toLowerCase().replaceAll(' ', '_');
+    if (status == 'alpa') return 'alfa';
+    return status;
+  }
+
+  DateTime? parseDate(dynamic input) {
+    final text = value(input);
+    if (text == '-') return null;
+    return DateTime.tryParse(text);
+  }
+
+  Color statusColor(dynamic input) {
+    switch (normalizeStatus(input)) {
+      case 'hadir':
+        return const Color(0xff168753);
+      case 'telat':
+        return const Color(0xffb76b11);
+      case 'izin':
+        return const Color(0xff2868b7);
+      case 'sakit':
+        return const Color(0xff7d55c7);
+      case 'pulang_cepat':
+        return const Color(0xffc45a24);
+      default:
+        return const Color(0xffc33636);
+    }
+  }
+
+  IconData jenisIcon(dynamic input) {
+    final jenis = value(input).toLowerCase();
+    if (jenis.contains('masuk')) return Icons.login_rounded;
+    if (jenis.contains('pulang')) return Icons.logout_rounded;
+    return Icons.menu_book_rounded;
+  }
+
+  int countStatus(String status) {
+    return data.where((item) => normalizeStatus(item['status']) == status).length;
+  }
+
+  int countType(String type) {
+    return data
+        .where((item) => value(item['jenis']).toLowerCase().contains(type))
+        .length;
+  }
+
+  Future<void> pickDateRange() async {
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: customRange ??
+          DateTimeRange(
+            start: now.subtract(const Duration(days: 7)),
+            end: now,
+          ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: navy,
+                  onPrimary: Colors.white,
+                ),
+          ),
+          child: child!,
+        );
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: const EdgeInsets.only(right: 10),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 10,
-        ),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xff273c75) : Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: const Color(0xff273c75).withValues(alpha: 0.25),
-                    blurRadius: 10,
-                  )
-                ]
-              : [],
-          border: Border.all(
-            color: const Color(0xff273c75),
-          ),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: active ? Colors.white : const Color(0xff273c75),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
     );
+
+    if (range == null) return;
+    setState(() {
+      customRange = range;
+      periodFilter = 'custom';
+    });
+  }
+
+  void resetFilters() {
+    setState(() {
+      search = '';
+      typeFilter = 'semua';
+      statusFilter = 'semua';
+      periodFilter = 'semua';
+      customRange = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final rows = filteredData;
+
     return Scaffold(
-      backgroundColor: const Color(0xfff5f6fa),
+      backgroundColor: bg,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xff273c75),
+        backgroundColor: navy,
+        foregroundColor: Colors.white,
         title: const Text(
           'Riwayat Absensi',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w900),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Muat ulang',
+            onPressed: getRiwayat,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
       body: loading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : filteredData.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(
-                        Icons.history,
-                        size: 90,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(height: 20),
-                      Text(
-                        'Belum Ada Riwayat',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+          ? const Center(child: CircularProgressIndicator(color: navy))
+          : failed
+              ? stateMessage(
+                  icon: Icons.wifi_off_rounded,
+                  title: 'Riwayat belum terbaca',
+                  message: 'Periksa koneksi lalu muat ulang halaman ini.',
+                  action: ElevatedButton.icon(
+                    onPressed: getRiwayat,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Muat Ulang'),
                   ),
                 )
-              : Column(
-                  children: [
-                    /*
-          |--------------------------------------------------------------------------
-          | HEADER
-          |--------------------------------------------------------------------------
-          */
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(25),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xff273c75),
-                            Color(0xff40739e),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(35),
-                          bottomRight: Radius.circular(35),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Total Riwayat',
-                            style: TextStyle(
-                              color: Colors.white70,
-                            ),
+              : RefreshIndicator(
+                  onRefresh: getRiwayat,
+                  color: navy,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    children: [
+                      headerCard(rows.length),
+                      const SizedBox(height: 14),
+                      filterPanel(),
+                      const SizedBox(height: 14),
+                      if (rows.isEmpty)
+                        stateMessage(
+                          icon: Icons.manage_search_rounded,
+                          title: 'Data tidak ditemukan',
+                          message:
+                              'Coba ubah filter, tanggal, status, atau kata kunci pencarian.',
+                          action: OutlinedButton.icon(
+                            onPressed: resetFilters,
+                            icon: const Icon(Icons.filter_alt_off_rounded),
+                            label: const Text('Reset Filter'),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${data.length} Absensi',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 25),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: statCard(
-                                  title: 'Hadir',
-                                  value: totalHadir().toString(),
-                                  icon: Icons.check_circle,
-                                ),
-                              ),
-                              const SizedBox(width: 15),
-                              Expanded(
-                                child: statCard(
-                                  title: 'Telat',
-                                  value: totalTelat().toString(),
-                                  icon: Icons.warning,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    /*
-          |--------------------------------------------------------------------------
-          | FILTER
-          |--------------------------------------------------------------------------
-          */
-                    SizedBox(
-                      height: 50,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        children: [
-                          filterButton('Semua'),
-                          filterButton('Masuk'),
-                          filterButton('Pulang'),
-                          filterButton('Mapel'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    /*
-          |--------------------------------------------------------------------------
-          | LIST RIWAYAT
-          |--------------------------------------------------------------------------
-          */
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        itemCount: filteredData.length,
-                        itemBuilder: (context, index) {
-                          final item = filteredData[index];
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 15),
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withValues(alpha: 0.08),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 5),
-                                )
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                /*
-                      |--------------------------------------------------------------------------
-                      | ICON
-                      |--------------------------------------------------------------------------
-                      */
-                                Container(
-                                  padding: const EdgeInsets.all(15),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xff273c75)
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Icon(
-                                    jenisIcon(item['jenis']),
-                                    color: const Color(0xff273c75),
-                                    size: 32,
-                                  ),
-                                ),
-                                const SizedBox(width: 15),
-
-                                /*
-                      |--------------------------------------------------------------------------
-                      | DETAIL
-                      |--------------------------------------------------------------------------
-                      */
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item['jenis'],
-                                        style: const TextStyle(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.calendar_today,
-                                            size: 16,
-                                            color: Colors.grey[600],
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            item['tanggal'],
-                                            style: TextStyle(
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.access_time,
-                                            size: 16,
-                                            color: Colors.grey[600],
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            item['jam_scan'] ?? '-',
-                                            style: TextStyle(
-                                              color: Colors.grey[700],
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                /*
-                      |--------------------------------------------------------------------------
-                      | STATUS
-                      |--------------------------------------------------------------------------
-                      */
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor(
-                                      item['status'],
-                                    ).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  child: Text(
-                                    item['status'],
-                                    style: TextStyle(
-                                      color: statusColor(
-                                        item['status'],
-                                      ),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                        )
+                      else
+                        ...rows.map(historyCard),
+                    ],
+                  ),
                 ),
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | STAT CARD
-  |--------------------------------------------------------------------------
-  */
-  Widget statCard({
-    required String title,
-    required String value,
-    required IconData icon,
-  }) {
+  Widget headerCard(int filteredTotal) {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
+        color: navy,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: navy.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: Colors.white,
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.history_rounded, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Catatan Absensi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '$filteredTotal ditampilkan dari ${data.length} riwayat',
+                      style: const TextStyle(
+                        color: Color(0xffdce7ff),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: statBox('Masuk', countType('masuk').toString())),
+              const SizedBox(width: 8),
+              Expanded(child: statBox('Pulang', countType('pulang').toString())),
+              const SizedBox(width: 8),
+              Expanded(child: statBox('Mapel', countType('mapel').toString())),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: statBox('Hadir', countStatus('hadir').toString())),
+              const SizedBox(width: 8),
+              Expanded(child: statBox('Telat', countStatus('telat').toString())),
+              const SizedBox(width: 8),
+              Expanded(child: statBox('Alfa', countStatus('alfa').toString())),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget statBox(String title, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
             title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white70,
+              color: Color(0xffdce7ff),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget filterPanel() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            onChanged: (value) => setState(() => search = value),
+            decoration: inputDecoration(
+              hint: 'Cari jenis, status, tanggal, atau jam...',
+              icon: Icons.search_rounded,
+            ),
+          ),
+          const SizedBox(height: 12),
+          sectionLabel('Jenis Absensi'),
+          chipRow(typeOptions, typeFilter, (value) {
+            setState(() => typeFilter = value);
+          }),
+          const SizedBox(height: 10),
+          sectionLabel('Status'),
+          chipRow(statusOptions, statusFilter, (value) {
+            setState(() => statusFilter = value);
+          }),
+          const SizedBox(height: 10),
+          sectionLabel('Periode'),
+          chipRow(periodOptions, periodFilter, (value) async {
+            if (value == 'custom') {
+              await pickDateRange();
+              return;
+            }
+            setState(() {
+              periodFilter = value;
+              customRange = null;
+            });
+          }),
+          if (customRange != null) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: pickDateRange,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xfff8fbff),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: line),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.date_range_rounded, color: navy),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${formatDate(customRange!.start)} sampai ${formatDate(customRange!.end)}',
+                        style: const TextStyle(
+                          color: ink,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: resetFilters,
+              icon: const Icon(Icons.filter_alt_off_rounded),
+              label: const Text('Reset Semua Filter'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: navy,
+                side: const BorderSide(color: line),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: muted,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+
+  Widget chipRow(
+    List<Map<String, String>> options,
+    String activeValue,
+    ValueChanged<String> onSelected,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: options.map((option) {
+          final active = activeValue == option['value'];
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              selected: active,
+              label: Text(option['label']!),
+              selectedColor: navy,
+              backgroundColor: const Color(0xfff8fbff),
+              labelStyle: TextStyle(
+                color: active ? Colors.white : navy,
+                fontWeight: FontWeight.w900,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+                side: BorderSide(color: active ? navy : line),
+              ),
+              onSelected: (_) => onSelected(option['value']!),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget historyCard(Map<String, dynamic> item) {
+    final color = statusColor(item['status']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: cardDecoration(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.11),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(jenisIcon(item['jenis']), color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        value(item['jenis']),
+                        style: const TextStyle(
+                          color: ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    statusPill(item['status']),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    infoPill(Icons.calendar_today_rounded,
+                        formatDate(parseDate(item['tanggal']))),
+                    infoPill(Icons.schedule_rounded, value(item['jam_scan'])),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget statusPill(dynamic status) {
+    final color = statusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        value(status).replaceAll('_', ' '),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Widget infoPill(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fbff),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: muted),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: ink,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget stateMessage({
+    required IconData icon,
+    required String title,
+    required String message,
+    Widget? action,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(top: 30),
+      padding: const EdgeInsets.all(22),
+      decoration: cardDecoration(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: navy.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(icon, color: navy, size: 34),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 14),
+            action,
+          ],
+        ],
+      ),
+    );
+  }
+
+  InputDecoration inputDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: Icon(icon, color: navy),
+      filled: true,
+      fillColor: const Color(0xfff8fbff),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: navy, width: 1.5),
+      ),
+    );
+  }
+
+  BoxDecoration cardDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: line),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xff172033).withValues(alpha: 0.05),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
+  }
+
+  String formatDate(dynamic input) {
+    final date = input is DateTime ? input : parseDate(input);
+    if (date == null) return '-';
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
   }
 }
