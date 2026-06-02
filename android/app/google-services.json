@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "646775711717",
+    "project_id": "absensi-qr-bhakti-anindya",
+    "storage_bucket": "absensi-qr-bhakti-anindya.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:646775711717:android:a177cb386ee2aa570bf10c",
+        "android_client_info": {
+          "package_name": "com.example.babsensi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLxwnnHgBpJLweFZ4Nc5gPOXJ9XEDScjM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
