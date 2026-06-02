@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/api.dart';
 import '../../services/storage_service.dart';
 import '../piket/dashboard_piket.dart';
+import '../wali/dashboard_wali.dart';
 
 class DashboardGuru extends StatefulWidget {
   const DashboardGuru({super.key});
@@ -86,6 +87,15 @@ class _DashboardGuruState extends State<DashboardGuru> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const DashboardPiket()),
+      );
+      return;
+    }
+
+    if (path == '/dashboard/wali') {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardWali()),
       );
       return;
     }

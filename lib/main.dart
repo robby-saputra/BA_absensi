@@ -6,6 +6,7 @@ import 'screens/auth/login_screen.dart';
 
 import 'screens/guru/dashboard_guru.dart';
 import 'screens/piket/dashboard_piket.dart';
+import 'screens/wali/dashboard_wali.dart';
 import 'screens/admin/dashboard_admin.dart';
 import 'screens/orang_tua/dashboard_orang_tua.dart';
 
@@ -60,6 +61,13 @@ class MyApp extends StatelessWidget {
         |--------------------------------------------------------------------------
         */
         '/piket': (context) => const DashboardPiket(),
+
+        /*
+        |--------------------------------------------------------------------------
+        | DASHBOARD WALI KELAS
+        |--------------------------------------------------------------------------
+        */
+        '/wali': (context) => const DashboardWali(),
 
         /*
         |--------------------------------------------------------------------------
