@@ -21,6 +21,22 @@ class _LoginScreenState extends State<LoginScreen> {
   bool loading = false;
   bool hidePassword = true;
 
+  static const webOnlyMessage =
+      'Akun ini hanya dapat digunakan melalui website. Silakan login melalui dashboard web sekolah.';
+
+  String normalizeRole(dynamic value) {
+    return (value ?? '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+  }
+
+  bool isParentRole(String role) {
+    return ['orang_tua', 'orangtua', 'parent', 'wali_murid'].contains(role);
+  }
+
   @override
   void dispose() {
     username.dispose();
@@ -43,15 +59,27 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (response['status'] == 'success') {
+      final user = Map<String, dynamic>.from(response['user'] ?? {});
+      final role = normalizeRole(user['role']);
+
+      if (role != 'siswa' && !isParentRole(role)) {
+        await StorageService.logout();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(webOnlyMessage),
+          ),
+        );
+        return;
+      }
+
       await StorageService.saveLogin(
         token: response['token'],
-        role: response['user']['role'],
-        nama: response['user']['nama'],
-        userId: response['user']['id'],
-        siswaId: response['user']['siswa_id'],
+        role: role,
+        nama: user['nama'],
+        userId: user['id'],
+        siswaId: user['siswa_id'],
       );
-
-      final role = response['user']['role'];
 
       /*
       |--------------------------------------------------------------------------
@@ -64,16 +92,17 @@ class _LoginScreenState extends State<LoginScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => DashboardSiswa(
-              nama: response['user']['nama'],
-              userId: response['user']['id'],
+              nama: user['nama'],
+              userId: user['id'],
             ),
           ),
         );
+        return;
       }
 
-      if (role == 'orang_tua') {
+      if (isParentRole(role)) {
         await FcmService.registerParentToken(
-          siswaId: response['user']['siswa_id'],
+          siswaId: user['siswa_id'],
           deviceName: 'Android Orang Tua',
         );
         if (!mounted) return;
@@ -81,51 +110,13 @@ class _LoginScreenState extends State<LoginScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => DashboardOrangTua(
-              nama: response['user']['nama'],
-              siswaId: response['user']['siswa_id'],
-              siswaNama: response['user']['siswa_nama'],
+              nama: user['nama'],
+              siswaId: user['siswa_id'],
+              siswaNama: user['siswa_nama'],
             ),
           ),
         );
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | LOGIN GURU
-      |--------------------------------------------------------------------------
-      */
-      if (role == 'guru') {
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(
-          context,
-          '/guru',
-        );
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | LOGIN PIKET
-      |--------------------------------------------------------------------------
-      */
-      if (role == 'piket') {
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(
-          context,
-          '/piket',
-        );
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | LOGIN ADMIN
-      |--------------------------------------------------------------------------
-      */
-      if (role == 'admin') {
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(
-          context,
-          '/admin',
-        );
+        return;
       }
     } else {
       if (!mounted) return;
@@ -320,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Akses siswa, guru, piket, admin, dan orang tua dalam satu aplikasi.',
+                                'Akses aplikasi Android hanya untuk siswa dan orang tua.',
                                 style: TextStyle(
                                   color: Color(0xff344054),
                                   fontWeight: FontWeight.w600,

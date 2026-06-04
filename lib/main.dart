@@ -4,10 +4,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'screens/auth/login_screen.dart';
 
-import 'screens/guru/dashboard_guru.dart';
-import 'screens/piket/dashboard_piket.dart';
-import 'screens/wali/dashboard_wali.dart';
-import 'screens/admin/dashboard_admin.dart';
 import 'screens/orang_tua/dashboard_orang_tua.dart';
 
 import 'screens/siswa/scan_harian_screen.dart';
@@ -47,34 +43,6 @@ class MyApp extends StatelessWidget {
         |--------------------------------------------------------------------------
         */
         '/': (context) => const LoginScreen(),
-
-        /*
-        |--------------------------------------------------------------------------
-        | DASHBOARD GURU
-        |--------------------------------------------------------------------------
-        */
-        '/guru': (context) => const DashboardGuru(),
-
-        /*
-        |--------------------------------------------------------------------------
-        | DASHBOARD PIKET
-        |--------------------------------------------------------------------------
-        */
-        '/piket': (context) => const DashboardPiket(),
-
-        /*
-        |--------------------------------------------------------------------------
-        | DASHBOARD WALI KELAS
-        |--------------------------------------------------------------------------
-        */
-        '/wali': (context) => const DashboardWali(),
-
-        /*
-        |--------------------------------------------------------------------------
-        | DASHBOARD ADMIN
-        |--------------------------------------------------------------------------
-        */
-        '/admin': (context) => const DashboardAdmin(),
         '/orang-tua': (context) => const DashboardOrangTua(
               nama: 'Orang Tua',
               siswaId: 0,

@@ -58,11 +58,11 @@ class _ScanHarianScreenState extends State<ScanHarianScreen>
       return;
     }
 
-    final locationResult = await LocationGuardService.ensureInsideSchoolArea();
+    final locationResult = await LocationGuardService.getCurrentLocationForScan();
     if (!mounted) return;
     if (!locationResult.allowed) {
       await showResultDialog(
-        title: 'Di Luar Area Sekolah',
+        title: 'Lokasi Belum Siap',
         message: locationResult.message,
         color: Colors.orange,
         icon: Icons.location_off,
@@ -80,7 +80,6 @@ class _ScanHarianScreenState extends State<ScanHarianScreen>
           'latitude': locationResult.latitude.toString(),
           'longitude': locationResult.longitude.toString(),
           'location_accuracy': locationResult.accuracyInMeters.toString(),
-          'distance_meters': locationResult.distanceInMeters.toString(),
         },
       );
       final data = jsonDecode(response.body);
