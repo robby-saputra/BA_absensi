@@ -6,6 +6,7 @@ import '../../services/storage_service.dart';
 
 import '../siswa/dashboard_siswa.dart';
 import '../orang_tua/dashboard_orang_tua.dart';
+import '../bantuan_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -305,16 +306,50 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(color: const Color(0xffe5eaf3)),
                         ),
-                        child: const Row(
+                        child: Column(
                           children: [
-                            Icon(Icons.verified_user, color: Color(0xff273c75)),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Akses aplikasi Android hanya untuk siswa dan orang tua.',
-                                style: TextStyle(
-                                  color: Color(0xff344054),
-                                  fontWeight: FontWeight.w600,
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_user,
+                                    color: Color(0xff273c75)),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Akses aplikasi Android hanya untuk siswa dan orang tua.',
+                                    style: TextStyle(
+                                      color: Color(0xff344054),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const BantuanScreen(),
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xff273c75),
+                                  side: const BorderSide(
+                                    color: Color(0xffdbe4f0),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(17),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.help_outline),
+                                label: const Text(
+                                  'Bantuan Penggunaan Aplikasi',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
                             ),
