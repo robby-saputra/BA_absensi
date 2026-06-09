@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/api.dart';
 import '../../services/storage_service.dart';
+import '../bantuan_screen.dart';
 import 'kalender_siswa_screen.dart';
-import 'kartu_pelajar_screen.dart';
 import 'pengajuan_izin_screen.dart';
 import 'riwayat_screen.dart';
 
@@ -108,9 +108,6 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
   List<dynamic> get notifikasi => dashboard?['notifikasi'] ?? [];
 
   List<dynamic> get kalenderHariIni => dashboard?['kalender_hari_ini'] ?? [];
-
-  Map<String, dynamic> get kartuPelajar =>
-      Map<String, dynamic>.from(dashboard?['kartu_pelajar'] ?? {});
 
   List<Map<String, dynamic>> getNotifications() {
     if (notifikasi.isNotEmpty) {
@@ -422,6 +419,14 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Bantuan',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const BantuanScreen()),
+            ),
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+          ),
           IconButton(
             onPressed: showNotifications,
             icon: Stack(
@@ -941,17 +946,12 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
             ),
       },
       {
-        'title': 'Kartu Pelajar',
-        'icon': Icons.badge,
+        'title': 'Bantuan',
+        'icon': Icons.help_outline,
         'color': const Color(0xff273c75),
         'tap': () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => KartuPelajarScreen(
-                  siswa: siswa,
-                  kartu: kartuPelajar,
-                ),
-              ),
+              MaterialPageRoute(builder: (context) => const BantuanScreen()),
             ),
       },
     ];

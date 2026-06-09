@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/api.dart';
 import '../../services/fcm_service.dart';
 import '../../services/storage_service.dart';
+import '../bantuan_screen.dart';
 import '../siswa/kalender_siswa_screen.dart';
 import '../siswa/riwayat_screen.dart';
 
@@ -441,6 +442,14 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Bantuan',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const BantuanScreen()),
+            ),
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+          ),
+          IconButton(
             onPressed: showNotifications,
             icon: Stack(
               clipBehavior: Clip.none,
@@ -764,6 +773,16 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        menuButton(
+          title: 'Bantuan Penggunaan',
+          icon: Icons.help_outline,
+          color: const Color(0xff273c75),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BantuanScreen()),
+          ),
         ),
       ],
     );

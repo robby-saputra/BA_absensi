@@ -21,11 +21,7 @@ class LocationGuardResult {
 }
 
 class LocationGuardService {
-  static const double schoolLatitude = -6.172564;
-  static const double schoolLongitude = 106.627565;
-  static const double allowedRadiusMeters = 300;
-
-  static Future<LocationGuardResult> ensureInsideSchoolArea() async {
+  static Future<LocationGuardResult> getCurrentLocationForScan() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return const LocationGuardResult(
@@ -57,36 +53,18 @@ class LocationGuardService {
 
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 12),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
       );
-      final distance = Geolocator.distanceBetween(
-        schoolLatitude,
-        schoolLongitude,
-        position.latitude,
-        position.longitude,
-      );
-
-      if (distance <= allowedRadiusMeters) {
-        return LocationGuardResult(
-          allowed: true,
-          distanceInMeters: distance,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          accuracyInMeters: position.accuracy,
-          message:
-              'Lokasi valid. Jarak dari sekolah sekitar ${distance.round()} meter.',
-        );
-      }
 
       return LocationGuardResult(
-        allowed: false,
-        distanceInMeters: distance,
+        allowed: true,
         latitude: position.latitude,
         longitude: position.longitude,
         accuracyInMeters: position.accuracy,
-        message:
-            'Anda berada sekitar ${distance.round()} meter dari sekolah. Scan hanya bisa dilakukan dalam radius ${allowedRadiusMeters.round()} meter dari SMK Bhakti Anindya.',
+        message: 'Lokasi terbaca dan akan divalidasi oleh server.',
       );
     } on TimeoutException {
       return const LocationGuardResult(
@@ -100,5 +78,9 @@ class LocationGuardService {
         message: 'Gagal membaca lokasi: $e',
       );
     }
+  }
+
+  static Future<LocationGuardResult> ensureInsideSchoolArea() {
+    return getCurrentLocationForScan();
   }
 }
