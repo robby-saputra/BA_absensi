@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/api.dart';
 import '../../models/jadwal_mapel_item.dart';
+import '../../models/orang_tua_dashboard_data.dart';
 import '../../services/fcm_service.dart';
 import '../../services/storage_service.dart';
 import '../bantuan_screen.dart';
@@ -33,7 +34,9 @@ class DashboardOrangTua extends StatefulWidget {
 class _DashboardOrangTuaState extends State<DashboardOrangTua> {
   Map<String, dynamic>? dashboard;
   bool loading = true;
+  bool refreshing = false;
   String? errorMessage;
+  DateTime? lastUpdatedAt;
   Set<String> readNotificationIds = {};
   StreamSubscription<Map<String, dynamic>>? notificationTapSubscription;
 
@@ -63,7 +66,11 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
 
     try {
       setState(() {
-        loading = true;
+        if (dashboard == null) {
+          loading = true;
+        } else {
+          refreshing = true;
+        }
         errorMessage = null;
       });
       final token = await StorageService.getToken();
@@ -71,6 +78,7 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
         setState(() {
           errorMessage = 'Sesi login tidak ditemukan. Silakan login kembali.';
           loading = false;
+          refreshing = false;
         });
         return;
       }
@@ -88,20 +96,29 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
         setState(() {
           errorMessage = data['message'] ?? 'Data monitoring gagal dimuat.';
           loading = false;
+          refreshing = false;
         });
         return;
       }
 
       setState(() {
         dashboard = data;
+        lastUpdatedAt = parseServerDate(data['server_time']) ?? DateTime.now();
         loading = false;
+        refreshing = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         errorMessage = 'Koneksi bermasalah: $e';
         loading = false;
+        refreshing = false;
       });
+      if (dashboard != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage ?? 'Refresh gagal.')),
+        );
+      }
     }
   }
 
@@ -113,6 +130,18 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
 
   Map<String, dynamic> get statusMapel =>
       Map<String, dynamic>.from(dashboard?['status_mapel_hari_ini'] ?? {});
+
+  OrangTuaDashboardData get dashboardData =>
+      OrangTuaDashboardData(dashboard ?? {});
+
+  Map<String, dynamic> get ringkasanKehadiran =>
+      Map<String, dynamic>.from(dashboardData.attendanceSummary);
+
+  Map<String, dynamic> get statistikBulan => dashboardData.monthlyStats;
+
+  List<dynamic> get aktivitasTerbaru => dashboardData.recentActivities;
+
+  List<dynamic> get notifikasiPenting => dashboardData.importantNotifications;
 
   List<dynamic> get jadwalHariIni => dashboard?['jadwal_hari_ini'] ?? [];
 
@@ -148,6 +177,41 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
   String value(dynamic data) {
     final text = (data ?? '').toString();
     return text.trim().isEmpty ? '-' : text;
+  }
+
+  DateTime? parseServerDate(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString())?.toLocal();
+  }
+
+  String hourMinute(DateTime value) {
+    return '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  Color attendanceStatusColor(dynamic data) {
+    final text = value(data).toLowerCase();
+    if (text.contains('hadir')) return Colors.green;
+    if (text.contains('terlambat') || text.contains('telat')) {
+      return Colors.orange;
+    }
+    if (text.contains('izin')) return Colors.blue;
+    if (text.contains('sakit')) return Colors.purple;
+    if (text.contains('alpa') || text.contains('alfa')) return Colors.red;
+    return Colors.orange;
+  }
+
+  IconData attendanceStatusIcon(dynamic data) {
+    final text = value(data).toLowerCase();
+    if (text.contains('hadir')) return Icons.check_circle;
+    if (text.contains('terlambat') || text.contains('telat')) {
+      return Icons.schedule;
+    }
+    if (text.contains('izin')) return Icons.assignment_turned_in;
+    if (text.contains('sakit')) return Icons.local_hospital;
+    if (text.contains('alpa') || text.contains('alfa')) {
+      return Icons.warning_amber_rounded;
+    }
+    return Icons.hourglass_empty;
   }
 
   String titleCase(dynamic data) {
@@ -455,6 +519,20 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Refresh',
+            onPressed: refreshing ? null : loadDashboard,
+            icon: refreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.refresh, color: Colors.white),
+          ),
+          IconButton(
             tooltip: 'Bantuan',
             onPressed: () => Navigator.push(
               context,
@@ -511,23 +589,31 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
                     children: [
                       animated(0, heroCard()),
                       const SizedBox(height: 16),
+                      animated(1, attendanceSummaryCard()),
+                      const SizedBox(height: 16),
                       animated(
-                        1,
+                        2,
                         LiveDateTimeCard(
-                          label: 'Waktu Server Sekolah',
+                          label: '',
                           serverTime: dashboard?['server_time'] ?? '',
                         ),
                       ),
                       const SizedBox(height: 16),
-                      animated(2, dailyStatusCard()),
+                      animated(3, monthlyStatsCard()),
                       const SizedBox(height: 16),
-                      animated(2, notificationCard()),
+                      animated(4, importantNotificationCard()),
                       const SizedBox(height: 16),
-                      animated(3, scheduleCard()),
+                      animated(5, scheduleCard()),
                       const SizedBox(height: 16),
-                      animated(4, permitCard()),
+                      animated(6, recentActivityCard()),
                       const SizedBox(height: 16),
-                      animated(5, actionMenu()),
+                      animated(7, permitCard()),
+                      const SizedBox(height: 16),
+                      if (lastUpdatedAt != null) ...[
+                        lastUpdatedText(),
+                        const SizedBox(height: 16),
+                      ],
+                      animated(8, actionMenu()),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -633,6 +719,52 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
     );
   }
 
+  Widget attendanceSummaryCard() {
+    final label = value(ringkasanKehadiran['label'] ?? 'Belum Absen');
+    final description = value(ringkasanKehadiran['deskripsi'] ?? 'Belum Absen');
+    final color = attendanceStatusColor(label);
+
+    return whiteCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 27,
+            backgroundColor: color.withValues(alpha: 0.12),
+            child: Icon(attendanceStatusIcon(label), color: color, size: 30),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Kehadiran Hari Ini',
+                    style: TextStyle(color: Colors.black54)),
+                const SizedBox(height: 5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget dailyStatusCard() {
     return whiteCard(
       child: Column(
@@ -668,6 +800,91 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
     );
   }
 
+  Widget monthlyStatsCard() {
+    final items = [
+      ['Hadir', statistikBulan['hadir'] ?? 0, Icons.check_circle, Colors.green],
+      [
+        'Terlambat',
+        statistikBulan['terlambat'] ?? 0,
+        Icons.schedule,
+        Colors.orange
+      ],
+      ['Izin', statistikBulan['izin'] ?? 0, Icons.assignment, Colors.blue],
+      [
+        'Sakit',
+        statistikBulan['sakit'] ?? 0,
+        Icons.local_hospital,
+        Colors.purple
+      ],
+      ['Alpa', statistikBulan['alpa'] ?? 0, Icons.warning, Colors.red],
+    ];
+
+    return whiteCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          sectionTitle('Statistik Bulan Berjalan', Icons.bar_chart),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.35,
+            ),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return statMiniCard(
+                item[0] as String,
+                item[1],
+                item[2] as IconData,
+                item[3] as Color,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget statMiniCard(String label, dynamic count, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(value(count),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w900)),
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget notificationCard() {
     return whiteCard(
       child: Column(
@@ -689,6 +906,40 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
                 subtitle: value(item['pesan']),
               );
             }),
+        ],
+      ),
+    );
+  }
+
+  Widget importantNotificationCard() {
+    final items = notifikasiPenting.isEmpty
+        ? [
+            {
+              'level': 'safe',
+              'pesan': 'Tidak ada pemberitahuan penting hari ini.'
+            }
+          ]
+        : notifikasiPenting.map((raw) => Map<String, dynamic>.from(raw));
+
+    return whiteCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          sectionTitle('Pemberitahuan Penting', Icons.priority_high),
+          const SizedBox(height: 12),
+          ...items.map((item) {
+            final level = value(item['level']).toLowerCase();
+            final safe = level == 'safe';
+            final color = safe
+                ? Colors.green
+                : (level == 'danger' ? Colors.red : Colors.orange);
+            return infoTile(
+              icon: safe ? Icons.check_circle : Icons.warning_amber_rounded,
+              color: color,
+              title: safe ? 'Aman' : 'Perhatian',
+              subtitle: value(item['pesan']),
+            );
+          }),
         ],
       ),
     );
@@ -722,6 +973,55 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
         ],
       ),
     );
+  }
+
+  Widget recentActivityCard() {
+    return whiteCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          sectionTitleWithAction(
+            'Aktivitas Terbaru',
+            Icons.timeline,
+            'Lihat Semua',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RiwayatScreen(siswaId: widget.siswaId),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (aktivitasTerbaru.isEmpty)
+            emptyState(Icons.history, 'Belum ada aktivitas',
+                'Aktivitas absensi anak akan muncul setelah tercatat.')
+          else
+            ...aktivitasTerbaru.take(5).map((raw) {
+              final item = Map<String, dynamic>.from(raw);
+              return infoTile(
+                icon: activityIcon(item['tipe']),
+                color: activityColor(item['tipe']),
+                title: value(item['label']),
+                subtitle: '${value(item['tanggal'])} ${value(item['jam'])}',
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  IconData activityIcon(dynamic type) {
+    final text = value(type).toLowerCase();
+    if (text.contains('masuk')) return Icons.login;
+    if (text.contains('pulang')) return Icons.logout;
+    return Icons.school;
+  }
+
+  Color activityColor(dynamic type) {
+    final text = value(type).toLowerCase();
+    if (text.contains('masuk')) return Colors.green;
+    if (text.contains('pulang')) return Colors.blue;
+    return Colors.purple;
   }
 
   Widget permitCard() {
@@ -985,6 +1285,42 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget sectionTitleWithAction(
+      String title, IconData icon, String action, VoidCallback onTap) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xff273c75)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xff273c75),
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+            ),
+          ),
+        ),
+        TextButton(onPressed: onTap, child: Text(action)),
+      ],
+    );
+  }
+
+  Widget lastUpdatedText() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        'Terakhir diperbarui pukul ${hourMinute(lastUpdatedAt!)}',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.black45,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 
