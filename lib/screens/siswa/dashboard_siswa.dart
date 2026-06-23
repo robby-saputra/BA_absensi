@@ -13,6 +13,274 @@ import 'kalender_siswa_screen.dart';
 import 'pengajuan_izin_screen.dart';
 import 'riwayat_screen.dart';
 
+const Color _scheduleActiveBlue = Color(0xff2563eb);
+const Color _scheduleDoneGreen = Colors.green;
+const Color _schedulePendingOrange = Colors.orange;
+
+DateTime? dashboardServerTime(Map<String, dynamic>? data) {
+  final raw = data?['server_time'] ?? data?['serverTime'];
+  if (raw == null) return null;
+  return DateTime.tryParse(raw.toString())?.toLocal();
+}
+
+String dashboardHourMinute(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+class DashboardScheduleLastUpdated extends StatelessWidget {
+  final DateTime updatedAt;
+
+  const DashboardScheduleLastUpdated({
+    super.key,
+    required this.updatedAt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Terakhir diperbarui pukul ${dashboardHourMinute(updatedAt)}',
+      key: const Key('schedule-last-updated'),
+      style: const TextStyle(
+        color: Colors.black45,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+class DashboardScheduleTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final DateTime currentTime;
+  final VoidCallback? onTap;
+
+  const DashboardScheduleTile({
+    super.key,
+    required this.item,
+    required this.currentTime,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final jadwal = JadwalMapelItem.fromJson(item);
+    final active = isScheduleActive(jadwal, currentTime);
+    final badgeColor =
+        jadwal.sudahAbsen ? _scheduleDoneGreen : _schedulePendingOrange;
+    final teacherColor = jadwal.butuhPengganti
+        ? Colors.redAccent
+        : (jadwal.isPenggantiAktif ? Colors.deepOrange : Colors.black54);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        key: const Key('schedule-card'),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: active
+                ? _scheduleActiveBlue.withValues(alpha: 0.32)
+                : Colors.black.withValues(alpha: 0.06),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.035),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: active ? 5 : 0,
+                color: _scheduleActiveBlue,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.11),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          jadwal.sudahAbsen
+                              ? Icons.check_circle
+                              : Icons.qr_code_scanner,
+                          color: badgeColor,
+                          size: 23,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    jadwal.namaMapel,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xff1f2937),
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.18,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                scheduleAttendanceBadge(jadwal.attendanceBadge),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Text(
+                                  jadwal.jpTimeLabel,
+                                  style: const TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (active) scheduleActiveLabel(),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.person_outline,
+                                  size: 15,
+                                  color: teacherColor,
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    jadwal.guruLine,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: teacherColor,
+                                      fontSize: 12.2,
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (jadwal.isPenggantiAktif &&
+                                jadwal.statusGuruUtamaLabel != '-') ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                'Guru utama ${jadwal.statusGuruUtamaLabel}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.deepOrange,
+                                  fontSize: 11.5,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static bool isScheduleActive(JadwalMapelItem jadwal, DateTime currentTime) {
+    final start = _timeOnDate(jadwal.jamMulai, currentTime);
+    final end = _timeOnDate(jadwal.jamSelesai, currentTime);
+    if (start == null || end == null) return false;
+    return !currentTime.isBefore(start) && currentTime.isBefore(end);
+  }
+
+  static DateTime? _timeOnDate(String value, DateTime date) {
+    final parts = value.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+}
+
+Widget scheduleAttendanceBadge(String status) {
+  final normalized = status.toLowerCase();
+  final color =
+      normalized == 'sudah' ? _scheduleDoneGreen : _schedulePendingOrange;
+  return Container(
+    key: Key('schedule-badge-$status'),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      status,
+      style: TextStyle(
+        color: color,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+Widget scheduleActiveLabel() {
+  return Container(
+    key: const Key('schedule-active-label'),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: _scheduleActiveBlue.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: const Text(
+      'Sedang Berlangsung',
+      style: TextStyle(
+        color: _scheduleActiveBlue,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
 class DashboardSiswa extends StatefulWidget {
   final String nama;
   final int userId;
@@ -31,6 +299,7 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
   Map<String, dynamic>? dashboard;
   bool loading = true;
   String? errorMessage;
+  DateTime? dashboardLastUpdatedAt;
   Set<String> readNotificationKeys = {};
 
   @override
@@ -94,6 +363,7 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
 
       setState(() {
         dashboard = data;
+        dashboardLastUpdatedAt = dashboardServerTime(data) ?? DateTime.now();
         loading = false;
       });
     } catch (e) {
@@ -121,6 +391,9 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
   List<dynamic> get notifikasi => dashboard?['notifikasi'] ?? [];
 
   List<dynamic> get kalenderHariIni => dashboard?['kalender_hari_ini'] ?? [];
+
+  DateTime get scheduleReferenceTime =>
+      dashboardServerTime(dashboard) ?? DateTime.now();
 
   List<Map<String, dynamic>> getNotifications() {
     if (notifikasi.isNotEmpty) {
@@ -818,6 +1091,12 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
               final item = Map<String, dynamic>.from(raw);
               return scheduleTile(item);
             }),
+          if (dashboardLastUpdatedAt != null) ...[
+            const SizedBox(height: 2),
+            DashboardScheduleLastUpdated(
+              updatedAt: dashboardLastUpdatedAt!,
+            ),
+          ],
         ],
       ),
     );
@@ -1018,82 +1297,10 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
   }
 
   Widget scheduleTile(Map<String, dynamic> item) {
-    final jadwal = JadwalMapelItem.fromJson(item);
-    final sudah = jadwal.sudahAbsen;
-    final color = sudah ? Colors.green : Colors.orange;
-    return InkWell(
+    return DashboardScheduleTile(
+      item: item,
+      currentTime: scheduleReferenceTime,
       onTap: () => showJadwalDetail(item),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: color.withValues(alpha: 0.18)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(sudah ? Icons.check_circle : Icons.qr_code_scanner,
-                  color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    jadwal.namaMapel,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    jadwal.jpTimeLabel,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    jadwal.guruLine,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: jadwal.butuhPengganti
-                          ? Colors.redAccent
-                          : (jadwal.isPenggantiAktif
-                              ? Colors.deepOrange
-                              : Colors.black54),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (jadwal.isPenggantiAktif &&
-                      jadwal.statusGuruUtamaLabel != '-') ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      'Guru utama ${jadwal.statusGuruUtamaLabel}',
-                      style: const TextStyle(
-                        color: Colors.deepOrange,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            statusChip(jadwal.attendanceBadge),
-          ],
-        ),
-      ),
     );
   }
 
