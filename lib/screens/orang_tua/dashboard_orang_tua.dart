@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/api.dart';
+import '../../models/jadwal_mapel_item.dart';
 import '../../services/fcm_service.dart';
 import '../../services/storage_service.dart';
 import '../bantuan_screen.dart';
@@ -705,15 +706,17 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
                 'Hari ini tidak ada jadwal mapel untuk anak.')
           else
             ...jadwalHariIni.map((raw) {
-              final item = Map<String, dynamic>.from(raw);
-              final done = item['sudah_absen'] == true;
+              final item = JadwalMapelItem.fromJson(
+                Map<String, dynamic>.from(raw),
+              );
+              final done = item.sudahAbsen;
               return infoTile(
                 icon: done ? Icons.check_circle : Icons.pending_actions,
                 color: done ? Colors.green : Colors.orange,
-                title: value(item['nama_mapel']),
+                title: item.namaMapel,
                 subtitle:
-                    '${value(item['jam_mulai'])} - ${value(item['jam_selesai'])} | ${done ? 'Sudah absen' : 'Belum absen'}',
-                trailing: statusChip(done ? 'Sudah' : 'Belum'),
+                    '${item.jpTimeLabel}\n${item.guruLine} | ${done ? 'Sudah absen' : 'Belum absen'}',
+                trailing: statusChip(item.attendanceBadge),
               );
             }),
         ],

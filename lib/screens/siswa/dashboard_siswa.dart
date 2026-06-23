@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/api.dart';
+import '../../models/jadwal_mapel_item.dart';
 import '../../services/storage_service.dart';
 import '../bantuan_screen.dart';
 import '../../widgets/live_datetime_card.dart';
@@ -372,22 +373,31 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
   }
 
   void showJadwalDetail(Map<String, dynamic> item) {
-    final sudah = item['sudah_absen'] == true;
+    final jadwal = JadwalMapelItem.fromJson(item);
+    final sudah = jadwal.sudahAbsen;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => detailSheet(
-        title: emptyDash(item['nama_mapel']),
+        title: jadwal.namaMapel,
         icon: Icons.school,
         color: sudah ? Colors.green : Colors.orange,
         children: [
-          detailRow('Jam', '${item['jam_mulai']} - ${item['jam_selesai']}'),
-          detailRow('Guru utama', item['guru_utama']),
-          detailRow('Guru pengganti', item['guru_pengganti']),
-          detailRow('Status guru', titleCase(item['status_guru'])),
+          detailRow('Jam', jadwal.jpTimeLabel),
+          detailRow('Guru utama', jadwal.guruUtama),
+          detailRow('Status guru utama', jadwal.statusGuruUtamaLabel),
+          detailRow('Guru yang bertugas', jadwal.guruAktif),
+          detailRow(
+            'Peran guru',
+            jadwal.roleGuruAktifLabel ??
+                (jadwal.guruAktif != null ? 'Guru utama' : 'Belum ditentukan'),
+          ),
+          if (jadwal.butuhPengganti)
+            detailRow('Penugasan', 'Menunggu guru pengganti'),
+          detailRow('Keterangan guru', jadwal.guruLine),
           detailRow('Status absen', sudah ? 'Sudah absen' : 'Belum absen'),
-          detailRow('Jam scan', item['jam_scan']),
-          detailRow('Catatan', item['catatan_guru']),
+          detailRow('Jam scan', jadwal.jamScan),
+          detailRow('Catatan', jadwal.catatanGuru),
         ],
       ),
     );
@@ -1008,7 +1018,8 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
   }
 
   Widget scheduleTile(Map<String, dynamic> item) {
-    final sudah = item['sudah_absen'] == true;
+    final jadwal = JadwalMapelItem.fromJson(item);
+    final sudah = jadwal.sudahAbsen;
     final color = sudah ? Colors.green : Colors.orange;
     return InkWell(
       onTap: () => showJadwalDetail(item),
@@ -1039,20 +1050,47 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    emptyDash(item['nama_mapel']),
+                    jadwal.namaMapel,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${item['jam_mulai']} - ${item['jam_selesai']} | ${emptyDash(item['guru_pengganti'] ?? item['guru_utama'])}',
+                    jadwal.jpTimeLabel,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.black54),
                   ),
+                  const SizedBox(height: 3),
+                  Text(
+                    jadwal.guruLine,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: jadwal.butuhPengganti
+                          ? Colors.redAccent
+                          : (jadwal.isPenggantiAktif
+                              ? Colors.deepOrange
+                              : Colors.black54),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (jadwal.isPenggantiAktif &&
+                      jadwal.statusGuruUtamaLabel != '-') ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Guru utama ${jadwal.statusGuruUtamaLabel}',
+                      style: const TextStyle(
+                        color: Colors.deepOrange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            statusChip(sudah ? 'Sudah' : 'Belum'),
+            statusChip(jadwal.attendanceBadge),
           ],
         ),
       ),

@@ -14,8 +14,8 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     expect(find.text('BAbsensi'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Username / NIS / No. Orang Tua'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
-    expect(find.text('LOGIN'), findsOneWidget);
+    expect(find.text('Masuk Aplikasi'), findsOneWidget);
   });
 }
