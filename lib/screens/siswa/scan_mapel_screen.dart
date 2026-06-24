@@ -59,7 +59,8 @@ class _ScanMapelScreenState extends State<ScanMapelScreen>
       return;
     }
 
-    final locationResult = await LocationGuardService.getCurrentLocationForScan();
+    final locationResult =
+        await LocationGuardService.getCurrentLocationForScan();
     if (!mounted) return;
     if (!locationResult.allowed) {
       await showResultDialog(

@@ -69,7 +69,12 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     try {
       final token = await StorageService.getToken();
       if (token == null || token.trim().isEmpty) {
-        if (mounted) setState(() { loading = false; failed = true; });
+        if (mounted) {
+          setState(() {
+            loading = false;
+            failed = true;
+          });
+        }
         return;
       }
       final url = Uri.parse('$baseUrl/riwayat/${widget.siswaId}');
@@ -79,7 +84,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
       });
       final decoded = jsonDecode(response.body);
       if (response.statusCode >= 400 || decoded is! List) {
-        throw Exception(decoded is Map ? decoded['message'] : 'Riwayat gagal dimuat');
+        throw Exception(
+            decoded is Map ? decoded['message'] : 'Riwayat gagal dimuat');
       }
       final result = decoded;
 
@@ -204,7 +210,9 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   int countStatus(String status) {
-    return data.where((item) => normalizeStatus(item['status']) == status).length;
+    return data
+        .where((item) => normalizeStatus(item['status']) == status)
+        .length;
   }
 
   int countType(String type) {
@@ -377,7 +385,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
             children: [
               Expanded(child: statBox('Masuk', countType('masuk').toString())),
               const SizedBox(width: 8),
-              Expanded(child: statBox('Pulang', countType('pulang').toString())),
+              Expanded(
+                  child: statBox('Pulang', countType('pulang').toString())),
               const SizedBox(width: 8),
               Expanded(child: statBox('Mapel', countType('mapel').toString())),
             ],
@@ -385,9 +394,11 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: statBox('Hadir', countStatus('hadir').toString())),
+              Expanded(
+                  child: statBox('Hadir', countStatus('hadir').toString())),
               const SizedBox(width: 8),
-              Expanded(child: statBox('Telat', countStatus('telat').toString())),
+              Expanded(
+                  child: statBox('Telat', countStatus('telat').toString())),
               const SizedBox(width: 8),
               Expanded(child: statBox('Alfa', countStatus('alfa').toString())),
             ],
