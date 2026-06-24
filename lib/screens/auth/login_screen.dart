@@ -66,10 +66,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (role != 'siswa' && !isParentRole(role)) {
         await StorageService.logout();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(webOnlyMessage),
-          ),
+        await showAuthDialog(
+          title: 'Akses Ditolak',
+          message: webOnlyMessage,
+          icon: Icons.lock_outline,
+          color: Colors.orange,
         );
         return;
       }
@@ -94,6 +95,14 @@ class _LoginScreenState extends State<LoginScreen> {
           deviceName: 'Android Siswa',
         );
         if (!mounted) return;
+        await showAuthDialog(
+          title: 'Login Berhasil',
+          message:
+              'Selamat datang, ${user['nama']}. Anda akan masuk ke dashboard siswa.',
+          icon: Icons.check_circle,
+          color: Colors.green,
+        );
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -113,6 +122,14 @@ class _LoginScreenState extends State<LoginScreen> {
           deviceName: 'Android Orang Tua',
         );
         if (!mounted) return;
+        await showAuthDialog(
+          title: 'Login Berhasil',
+          message:
+              'Selamat datang, ${user['nama']}. Anda akan masuk ke dashboard orang tua.',
+          icon: Icons.check_circle,
+          color: Colors.green,
+        );
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -127,12 +144,121 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response['message']),
-        ),
+      await showAuthDialog(
+        title: 'Login Gagal',
+        message: (response['message'] ?? 'Username atau password tidak sesuai.')
+            .toString(),
+        icon: Icons.error_outline,
+        color: Colors.red,
       );
     }
+  }
+
+  Future<void> showAuthDialog({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Color color,
+  }) async {
+    if (!mounted) return;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: title,
+      barrierColor: Colors.black.withValues(alpha: 0.38),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width.clamp(0, 420) - 44,
+              margin: const EdgeInsets.symmetric(horizontal: 22),
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 30,
+                    offset: const Offset(0, 18),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 74,
+                    height: 74,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 40),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xff273c75),
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xff273c75),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Mengerti',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeIn,
+        );
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(scale: curved, child: child),
+        );
+      },
+    );
   }
 
   @override
@@ -207,7 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 18),
                             const Text(
-                              'BAbsensi',
+                              'AbsensiBA',
                               style: TextStyle(
                                 color: Color(0xff273c75),
                                 fontSize: 32,

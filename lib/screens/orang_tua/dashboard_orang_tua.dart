@@ -31,6 +31,121 @@ class DashboardOrangTua extends StatefulWidget {
   State<DashboardOrangTua> createState() => _DashboardOrangTuaState();
 }
 
+class ParentMonthlyStatsGrid extends StatelessWidget {
+  final Map<String, dynamic> statistikBulan;
+
+  const ParentMonthlyStatsGrid({
+    super.key,
+    required this.statistikBulan,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ['Hadir', statistikBulan['hadir'] ?? 0, Icons.check_circle, Colors.green],
+      [
+        'Terlambat',
+        statistikBulan['terlambat'] ?? 0,
+        Icons.schedule,
+        Colors.orange
+      ],
+      ['Izin', statistikBulan['izin'] ?? 0, Icons.assignment, Colors.blue],
+      [
+        'Sakit',
+        statistikBulan['sakit'] ?? 0,
+        Icons.local_hospital,
+        Colors.purple
+      ],
+      ['Alpa', statistikBulan['alpa'] ?? 0, Icons.warning, Colors.red],
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - 10) / 2;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: items.map((item) {
+            return SizedBox(
+              width: tileWidth,
+              child: ParentStatMiniCard(
+                label: item[0] as String,
+                count: item[1],
+                icon: item[2] as IconData,
+                color: item[3] as Color,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class ParentStatMiniCard extends StatelessWidget {
+  final String label;
+  final dynamic count;
+  final IconData icon;
+  final Color color;
+
+  const ParentStatMiniCard({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 9),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    height: 1.1,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontSize: 12,
+                    height: 1.15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DashboardOrangTuaState extends State<DashboardOrangTua> {
   Map<String, dynamic>? dashboard;
   bool loading = true;
@@ -801,85 +916,13 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
   }
 
   Widget monthlyStatsCard() {
-    final items = [
-      ['Hadir', statistikBulan['hadir'] ?? 0, Icons.check_circle, Colors.green],
-      [
-        'Terlambat',
-        statistikBulan['terlambat'] ?? 0,
-        Icons.schedule,
-        Colors.orange
-      ],
-      ['Izin', statistikBulan['izin'] ?? 0, Icons.assignment, Colors.blue],
-      [
-        'Sakit',
-        statistikBulan['sakit'] ?? 0,
-        Icons.local_hospital,
-        Colors.purple
-      ],
-      ['Alpa', statistikBulan['alpa'] ?? 0, Icons.warning, Colors.red],
-    ];
-
     return whiteCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           sectionTitle('Statistik Bulan Berjalan', Icons.bar_chart),
           const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: items.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 2.35,
-            ),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return statMiniCard(
-                item[0] as String,
-                item[1],
-                item[2] as IconData,
-                item[3] as Color,
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget statMiniCard(String label, dynamic count, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(value(count),
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w900)),
-                Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700)),
-              ],
-            ),
-          ),
+          ParentMonthlyStatsGrid(statistikBulan: statistikBulan),
         ],
       ),
     );
