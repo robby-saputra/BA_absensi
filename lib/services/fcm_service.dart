@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 
@@ -15,6 +16,7 @@ class FcmService {
   static final StreamController<Map<String, dynamic>>
       _notificationTapController =
       StreamController<Map<String, dynamic>>.broadcast();
+  static StreamSubscription<String>? _tokenRefreshSubscription;
 
   static Stream<Map<String, dynamic>> get notificationTapStream =>
       _notificationTapController.stream;
@@ -94,34 +96,84 @@ class FcmService {
     final apiToken = await StorageService.getToken();
     if (apiToken == null || apiToken.isEmpty) return;
 
-    await http.post(
-      Uri.parse('$baseUrl/fcm/register-device'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $apiToken',
-      },
-      body: {
-        'siswa_id': siswaId.toString(),
-        'token': token,
-        'audience': audience,
-        'device_name': deviceName,
-      },
+    await registerProvidedToken(
+      siswaId: siswaId,
+      audience: audience,
+      deviceName: deviceName,
+      fcmToken: token,
+      apiToken: apiToken,
     );
 
-    _messaging.onTokenRefresh.listen((newToken) {
-      http.post(
-        Uri.parse('$baseUrl/fcm/register-device'),
+    await _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = _messaging.onTokenRefresh.listen((newToken) {
+      registerProvidedToken(
+        siswaId: siswaId,
+        audience: audience,
+        deviceName: deviceName,
+        fcmToken: newToken,
+        apiToken: apiToken,
+      );
+    });
+  }
+
+  @visibleForTesting
+  static Uri registrationUri(String audience) {
+    return Uri.parse(
+      '$baseUrl/fcm/${audience == 'orang_tua' ? 'register-parent' : 'register-device'}',
+    );
+  }
+
+  @visibleForTesting
+  static Future<bool> registerProvidedToken({
+    required int siswaId,
+    required String audience,
+    required String deviceName,
+    required String? fcmToken,
+    required String? apiToken,
+    http.Client? client,
+  }) async {
+    if (fcmToken == null || fcmToken.isEmpty) {
+      debugPrint('FCM token kosong, registrasi dilewati.');
+      return false;
+    }
+
+    if (apiToken == null || apiToken.isEmpty) {
+      debugPrint('Token API kosong, registrasi FCM dilewati.');
+      return false;
+    }
+
+    final httpClient = client ?? http.Client();
+    final shouldClose = client == null;
+    try {
+      final response = await httpClient.post(
+        registrationUri(audience),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $apiToken',
         },
         body: {
           'siswa_id': siswaId.toString(),
-          'token': newToken,
+          'token': fcmToken,
           'audience': audience,
           'device_name': deviceName,
         },
       );
-    });
+
+      final suffix = fcmToken.length <= 6
+          ? fcmToken
+          : fcmToken.substring(fcmToken.length - 6);
+      debugPrint(
+        'Registrasi FCM $audience status=${response.statusCode} token=...$suffix',
+      );
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (error) {
+      debugPrint('Registrasi FCM $audience gagal: $error');
+      return false;
+    } finally {
+      if (shouldClose) {
+        httpClient.close();
+      }
+    }
   }
 }
