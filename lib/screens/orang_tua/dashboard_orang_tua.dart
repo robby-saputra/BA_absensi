@@ -9,6 +9,7 @@ import '../../config/api.dart';
 import '../../services/fcm_service.dart';
 import '../../services/storage_service.dart';
 import '../bantuan_screen.dart';
+import '../../widgets/live_datetime_card.dart';
 import '../siswa/kalender_siswa_screen.dart';
 import '../siswa/riwayat_screen.dart';
 
@@ -509,7 +510,15 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
                     children: [
                       animated(0, heroCard()),
                       const SizedBox(height: 16),
-                      animated(1, dailyStatusCard()),
+                      animated(
+                        1,
+                        LiveDateTimeCard(
+                          label: 'Waktu Server Sekolah',
+                          serverTime: dashboard?['server_time'] ?? '',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      animated(2, dailyStatusCard()),
                       const SizedBox(height: 16),
                       animated(2, notificationCard()),
                       const SizedBox(height: 16),

@@ -1,2 +1,2 @@
-const String baseUrl = "http://192.168.1.10:8000/api";
-const String webBaseUrl = "http://192.168.1.10:8000";
+const String baseUrl = "https://baabsensi.my.id/api";
+const String webBaseUrl = "https://baabsensi.my.id";

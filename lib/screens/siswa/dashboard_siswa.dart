@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/api.dart';
 import '../../services/storage_service.dart';
 import '../bantuan_screen.dart';
+import '../../widgets/live_datetime_card.dart';
 import 'kalender_siswa_screen.dart';
 import 'pengajuan_izin_screen.dart';
 import 'riwayat_screen.dart';
@@ -525,7 +526,15 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
                       children: [
                         animatedItem(0, heroCard()),
                         const SizedBox(height: 16),
-                        animatedItem(1, profileCard()),
+                        animatedItem(
+                          1,
+                          LiveDateTimeCard(
+                            label: 'Waktu Server Sekolah',
+                            serverTime: dashboard?['server_time'] ?? '',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        animatedItem(2, profileCard()),
                         const SizedBox(height: 16),
                         animatedItem(2, attendanceStatusCard()),
                         const SizedBox(height: 16),
