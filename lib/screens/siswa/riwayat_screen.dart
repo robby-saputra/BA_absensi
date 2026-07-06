@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/api.dart';
+import '../../services/storage_service.dart';
 
 class RiwayatScreen extends StatefulWidget {
   final int siswaId;
@@ -66,9 +67,21 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     });
 
     try {
+      final token = await StorageService.getToken();
+      if (token == null || token.trim().isEmpty) {
+        if (mounted) setState(() { loading = false; failed = true; });
+        return;
+      }
       final url = Uri.parse('$baseUrl/riwayat/${widget.siswaId}');
-      final response = await http.get(url);
-      final result = jsonDecode(response.body) as List;
+      final response = await http.get(url, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${token.trim()}',
+      });
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode >= 400 || decoded is! List) {
+        throw Exception(decoded is Map ? decoded['message'] : 'Riwayat gagal dimuat');
+      }
+      final result = decoded;
 
       if (!mounted) return;
 

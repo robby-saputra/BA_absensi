@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../../config/api.dart';
+
 class NilaiScreen extends StatefulWidget {
   final int siswaId;
 
@@ -26,7 +28,7 @@ class _NilaiScreenState extends State<NilaiScreen> {
   Future getNilai() async {
     try {
       var url = Uri.parse(
-        'http://192.168.1.5:8000/api/nilai/${widget.siswaId}',
+        '$baseUrl/nilai/${widget.siswaId}',
       );
 
       var response = await http.get(url);

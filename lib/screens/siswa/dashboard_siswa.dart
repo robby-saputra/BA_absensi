@@ -64,9 +64,20 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
         loading = true;
         errorMessage = null;
       });
+      final token = await StorageService.getToken();
+      if (token == null || token.trim().isEmpty) {
+        setState(() {
+          errorMessage = 'Sesi login tidak ditemukan. Silakan login kembali.';
+          loading = false;
+        });
+        return;
+      }
       final response = await http.get(
         Uri.parse('$baseUrl/siswa/dashboard/${widget.userId}'),
-        headers: {'Accept': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${token.trim()}',
+        },
       );
       final data = jsonDecode(response.body);
       if (!mounted) return;
@@ -1318,42 +1329,45 @@ class _DashboardSiswaState extends State<DashboardSiswa> {
       ),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: color.withValues(alpha: 0.1),
-                  child: Icon(icon, color: color),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black12,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.1),
+                    child: Icon(icon, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...children,
+            ],
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api.dart';
+import 'storage_service.dart';
 
 class FcmService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -36,9 +37,9 @@ class FcmService {
     );
 
     const channel = AndroidNotificationChannel(
-      'orang_tua_absensi',
-      'Notifikasi Absensi Orang Tua',
-      description: 'Notifikasi absen masuk, mapel, dan pulang siswa.',
+      'absensi_sekolah',
+      'Pengingat Absensi Sekolah',
+      description: 'Pengingat mapel dan waktu absen harian.',
       importance: Importance.high,
     );
 
@@ -58,9 +59,9 @@ class FcmService {
         notification.body,
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'orang_tua_absensi',
-            'Notifikasi Absensi Orang Tua',
-            channelDescription: 'Notifikasi absen siswa untuk orang tua.',
+            'absensi_sekolah',
+            'Pengingat Absensi Sekolah',
+            channelDescription: 'Pengingat mapel dan waktu absen harian.',
             importance: Importance.high,
             priority: Priority.high,
           ),
@@ -82,30 +83,42 @@ class FcmService {
     }
   }
 
-  static Future<void> registerParentToken({
+  static Future<void> registerDeviceToken({
     required int siswaId,
+    required String audience,
     String deviceName = 'Android',
   }) async {
     final token = await _messaging.getToken();
     if (token == null || token.isEmpty) return;
 
+    final apiToken = await StorageService.getToken();
+    if (apiToken == null || apiToken.isEmpty) return;
+
     await http.post(
-      Uri.parse('$baseUrl/fcm/register-parent'),
-      headers: {'Accept': 'application/json'},
+      Uri.parse('$baseUrl/fcm/register-device'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $apiToken',
+      },
       body: {
         'siswa_id': siswaId.toString(),
         'token': token,
+        'audience': audience,
         'device_name': deviceName,
       },
     );
 
     _messaging.onTokenRefresh.listen((newToken) {
       http.post(
-        Uri.parse('$baseUrl/fcm/register-parent'),
-        headers: {'Accept': 'application/json'},
+        Uri.parse('$baseUrl/fcm/register-device'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $apiToken',
+        },
         body: {
           'siswa_id': siswaId.toString(),
           'token': newToken,
+          'audience': audience,
           'device_name': deviceName,
         },
       );

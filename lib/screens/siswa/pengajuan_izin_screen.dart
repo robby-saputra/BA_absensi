@@ -67,7 +67,8 @@ class _PengajuanIzinScreenState extends State<PengajuanIzinScreen> {
     if (!formKey.currentState!.validate()) return;
 
     final userId = await StorageService.getUserId();
-    if (userId == null) {
+    final token = await StorageService.getToken();
+    if (userId == null || token == null || token.trim().isEmpty) {
       showDialogInfo(
         title: 'Sesi Login Habis',
         message: 'Silakan login ulang sebelum mengirim pengajuan.',
@@ -84,6 +85,7 @@ class _PengajuanIzinScreenState extends State<PengajuanIzinScreen> {
         Uri.parse('$baseUrl/siswa/pengajuan-izin'),
       );
       request.headers['Accept'] = 'application/json';
+      request.headers['Authorization'] = 'Bearer ${token.trim()}';
       request.fields.addAll({
         'siswa_id': userId.toString(),
         'jenis': jenis,

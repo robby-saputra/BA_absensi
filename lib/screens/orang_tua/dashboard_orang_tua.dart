@@ -64,9 +64,20 @@ class _DashboardOrangTuaState extends State<DashboardOrangTua> {
         loading = true;
         errorMessage = null;
       });
+      final token = await StorageService.getToken();
+      if (token == null || token.trim().isEmpty) {
+        setState(() {
+          errorMessage = 'Sesi login tidak ditemukan. Silakan login kembali.';
+          loading = false;
+        });
+        return;
+      }
       final response = await http.get(
         Uri.parse('$baseUrl/siswa/dashboard/${widget.siswaId}'),
-        headers: {'Accept': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${token.trim()}',
+        },
       );
       final data = jsonDecode(response.body);
       if (!mounted) return;

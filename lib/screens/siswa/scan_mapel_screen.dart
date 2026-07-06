@@ -46,8 +46,9 @@ class _ScanMapelScreenState extends State<ScanMapelScreen>
   Future<void> scanQr(String token) async {
     await scannerController.stop();
     final userId = await StorageService.getUserId();
+    final accessToken = await StorageService.getToken();
 
-    if (userId == null) {
+    if (userId == null || accessToken == null || accessToken.trim().isEmpty) {
       await showResultDialog(
         title: 'Sesi Login Habis',
         message: 'Silakan login ulang sebelum melakukan absensi mapel.',
@@ -74,6 +75,10 @@ class _ScanMapelScreenState extends State<ScanMapelScreen>
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/scan-mapel'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${accessToken.trim()}',
+        },
         body: {
           'user_id': userId.toString(),
           'token': token,

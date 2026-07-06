@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/api.dart';
+import '../../services/storage_service.dart';
 
 class KalenderSiswaScreen extends StatefulWidget {
   final int siswaId;
@@ -30,21 +31,44 @@ class _KalenderSiswaScreenState extends State<KalenderSiswaScreen> {
   }
 
   Future<void> loadKalender() async {
+    final requestedMonth = bulan;
+    final requestedYear = tahun;
     setState(() => loading = true);
     try {
+      final token = await StorageService.getToken();
+      if (token == null || token.trim().isEmpty) {
+        if (mounted) setState(() => loading = false);
+        return;
+      }
       final response = await http.get(
         Uri.parse(
-          '$baseUrl/siswa/kalender/${widget.siswaId}?bulan=$bulan&tahun=$tahun',
+          '$baseUrl/siswa/kalender/${widget.siswaId}?bulan=$requestedMonth&tahun=$requestedYear',
         ),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${token.trim()}',
+        },
       );
       final data = jsonDecode(response.body);
       if (!mounted) return;
+      if (requestedMonth != bulan || requestedYear != tahun) return;
       setState(() {
-        events = data['events'] ?? [];
+        events = (data['events'] as List? ?? []).where((raw) {
+          final item = Map<String, dynamic>.from(raw);
+          final type = (item['jenis'] ?? '').toString().toLowerCase();
+          if (!['libur', 'ujian', 'kegiatan'].contains(type)) return false;
+          final start = DateTime.tryParse('${item['tanggal_mulai']}');
+          final end = DateTime.tryParse('${item['tanggal_selesai']}');
+          if (start == null || end == null) return false;
+          final monthStart = DateTime(requestedYear, requestedMonth, 1);
+          final monthEnd = DateTime(requestedYear, requestedMonth + 1, 0);
+          return !start.isAfter(monthEnd) && !end.isBefore(monthStart);
+        }).toList();
         loading = false;
       });
     } catch (_) {
       if (!mounted) return;
+      if (requestedMonth != bulan || requestedYear != tahun) return;
       setState(() {
         events = [];
         loading = false;

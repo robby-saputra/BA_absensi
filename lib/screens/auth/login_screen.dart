@@ -88,6 +88,11 @@ class _LoginScreenState extends State<LoginScreen> {
       |--------------------------------------------------------------------------
       */
       if (role == 'siswa') {
+        await FcmService.registerDeviceToken(
+          siswaId: user['id'],
+          audience: 'siswa',
+          deviceName: 'Android Siswa',
+        );
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -102,8 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (isParentRole(role)) {
-        await FcmService.registerParentToken(
+        await FcmService.registerDeviceToken(
           siswaId: user['siswa_id'],
+          audience: 'orang_tua',
           deviceName: 'Android Orang Tua',
         );
         if (!mounted) return;
